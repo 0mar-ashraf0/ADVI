@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ADVI - Academic Advisor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary-navy: #003366;
+            --dark-navy:    #001f3d;
+            --light-navy:   #004080;
+            --gold:         #FFD700;
+            --light-gold:   #FFF8DC;
+            --white:        #ffffff;
+            --gray-light:   #f5f5f5;
+            --gray-dark:    #333333;
+            --border-radius: 8px;
+            --shadow:    0 2px 12px rgba(0,0,0,0.1);
+            --shadow-lg: 0 4px 24px rgba(0,0,0,0.15);
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--white); color: var(--gray-dark); overflow: hidden; }
+
+        .header { background: linear-gradient(135deg, var(--primary-navy) 0%, var(--dark-navy) 100%); color: var(--white); padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow-lg); z-index: 100; }
+        .header-left  { display: flex; align-items: center; gap: 1rem; }
+        .logo         { font-size: 1.8rem; font-weight: 700; color: var(--gold); text-decoration: none; letter-spacing: 1px; }
+        .logo span    { color: var(--white); }
+        .header-title { font-size: 1rem; font-weight: 400; color: var(--light-gold); }
+        .header-badge { background: var(--gold); color: var(--primary-navy); padding: .3rem .7rem; border-radius: 20px; font-size: .75rem; font-weight: 600; margin-left: .5rem; }
+        .header-right { display: flex; align-items: center; gap: 1rem; }
+        .student-info { font-size: .9rem; text-align: right; line-height: 1.4; }
+        .student-id   { color: var(--light-gold); font-size: .8rem; }
+
+        .app-layout { display: flex; height: calc(100vh - 80px); width: 100vw; overflow: hidden; }
+        @media (max-width: 768px) { .app-layout { height: calc(100vh - 58px); } }
+        /* view-container must not overflow — tab bar is 64px inside app-layout */
+        @media (max-width: 768px) { .view-container { max-height: calc(100% - 64px); } }
+
+        .nav-sidebar    { width: 280px; background: var(--dark-navy); color: var(--white); display: flex; flex-direction: column; padding: 1.5rem 1rem; box-shadow: 2px 0 10px rgba(0,0,0,.1); z-index: 10; }
+        .nav-section    { display: flex; flex-direction: column; }
+        .nav-brand-menu { font-size: .85rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,.5); margin-bottom: 1rem; padding-left: .5rem; display: flex; justify-content: space-between; }
+        .nav-item       { padding: .8rem 1rem; border-radius: var(--border-radius); cursor: pointer; display: flex; align-items: center; gap: 1rem; font-weight: 600; color: rgba(255,255,255,.8); transition: all .3s ease; margin-bottom: .5rem; }
+        .nav-item:hover  { background: rgba(255,255,255,.1); color: var(--white); }
+        .nav-item.active { background: var(--primary-navy); color: var(--gold); border-left: 4px solid var(--gold); }
+        .nav-item span   { font-size: 1.2rem; }
+        .nav-item.upload-btn { margin-top: 1rem; background: linear-gradient(135deg, var(--gold) 0%, #FFC700 100%); color: var(--primary-navy); border: none; justify-content: center; box-shadow: var(--shadow); }
+        .nav-item.upload-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+        .sidebar-divider { border: 0; height: 1px; background: rgba(255,255,255,.1); margin: 1.5rem 0; }
+        .history-section { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+        .history-content { flex: 1; overflow-y: auto; padding-right: 5px; }
+        .history-item    { background: rgba(255,255,255,.05); padding: .8rem; margin-bottom: .6rem; border-radius: var(--border-radius); border-left: 3px solid var(--gold); cursor: pointer; transition: all .2s ease; }
+        .history-item:hover { background: rgba(255,255,255,.1); transform: translateX(3px); }
+        .history-item-title { font-weight: 600; color: var(--gold); margin-bottom: .2rem; font-size: .85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .history-item-time  { font-size: .7rem; color: rgba(255,255,255,.5); }
+        .empty-history      { text-align: center; color: rgba(255,255,255,.4); padding: 2rem 1rem; font-size: .85rem; }
+
+        .view-container        { flex: 1; display: none; height: 100%; overflow: hidden; }
+        .view-container.active { display: flex; }
+
+        .chat-area     { flex: 1; display: flex; flex-direction: column; background: var(--white); }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 2rem; display: flex; flex-direction: column; gap: 1rem; background: linear-gradient(to bottom, var(--white), var(--light-gold) .1%); }
+
+        .message { display: flex; gap: .75rem; animation: fadeIn .3s ease; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+        .message.user { justify-content: flex-end; }
+
+        .message-avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 600; flex-shrink: 0; }
+        .message.assistant .message-avatar { background: linear-gradient(135deg, var(--primary-navy), var(--light-navy)); color: var(--white); }
+        .message.user      .message-avatar { background: linear-gradient(135deg, var(--gold), #FFA500); color: var(--primary-navy); }
+
+        .message-content { max-width: 70%; padding: 1rem; border-radius: var(--border-radius); line-height: 1.6; word-wrap: break-word; }
+        .message.assistant .message-content { background: var(--light-navy); color: var(--white); border-bottom-left-radius: 2px; direction: rtl; text-align: right; }
+        .message.user      .message-content { background: var(--primary-navy); color: var(--white); border-bottom-right-radius: 2px; white-space: pre-wrap; }
+
+        .message.assistant .message-content p       { margin: 0 0 .6rem 0; }
+        .message.assistant .message-content p:last-child { margin-bottom: 0; }
+        .message.assistant .message-content ul,
+        .message.assistant .message-content ol      { margin: .4rem 0 .6rem 0; padding-right: 1.2rem; padding-left: 0; }
+        .message.assistant .message-content li      { margin-bottom: .3rem; }
+        .message.assistant .message-content strong  { color: var(--gold); font-weight: 700; }
+        .message.assistant .message-content table   { border-collapse: collapse; width: 100%; margin: .6rem 0; font-size: .88rem; }
+        .message.assistant .message-content th      { background: var(--primary-navy); color: var(--gold); padding: .5rem .75rem; text-align: right; border: 1px solid rgba(255,255,255,.2); }
+        .message.assistant .message-content td      { padding: .4rem .75rem; border: 1px solid rgba(255,255,255,.15); color: var(--white); }
+        .message.assistant .message-content tr:nth-child(even) td { background: rgba(255,255,255,.05); }
+        .message.assistant .message-content code    { background: rgba(0,0,0,.3); padding: .1rem .4rem; border-radius: 4px; font-family: monospace; font-size: .9em; }
+
+        /* ── THINKING DOTS ── */
+        .thinking-dots { display: flex; align-items: center; gap: 4px; padding: 4px 0; }
+        .thinking-dots span { display: inline-block; width: 8px; height: 8px; background: var(--gold); border-radius: 50%; animation: bounce 1.2s infinite ease-in-out; }
+        .thinking-dots span:nth-child(2) { animation-delay: .2s; }
+        .thinking-dots span:nth-child(3) { animation-delay: .4s; }
+        @keyframes bounce { 0%,80%,100% { transform:scale(.6); opacity:.4; } 40% { transform:scale(1); opacity:1; } }
+
+        .message-time { font-size: .7rem; color: #999; margin-top: .25rem; }
+        .message.assistant .message-time { text-align: left; }
+        .message.user      .message-time { text-align: right; }
+
+        .input-area    { padding: 1.5rem 2rem; background: var(--gray-light); border-top: 2px solid var(--gold); display: flex; gap: .75rem; align-items: flex-end; }
+        .input-wrapper { flex: 1; display: flex; flex-direction: column; }
+        .input-label   { font-size: .8rem; color: var(--primary-navy); font-weight: 600; margin-bottom: .25rem; }
+        .input-box     { display: flex; flex-direction: row; gap: .5rem; align-items: flex-end; }
+        #messageInput  { flex: 1; padding: .75rem 1rem; border: 2px solid var(--primary-navy); border-radius: var(--border-radius); font-size: .95rem; font-family: inherit; resize: none; max-height: 100px; transition: border-color .3s ease; }
+        #messageInput:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(255,215,0,.1); }
+        .action-controls { display: flex; flex-direction: row; gap: .5rem; align-items: center; padding-bottom: 3px; flex-shrink: 0; }
+        .icon-btn { background: transparent; border: none; font-size: 1.5rem; cursor: pointer; padding: 0 5px; transition: .3s; opacity: .7; }
+        .icon-btn:hover { opacity: 1; transform: scale(1.1); }
+
+        .send-btn, .stop-btn { color: var(--white); border: none; width: 46px; height: 46px; border-radius: 50%; font-size: 1.2rem; cursor: pointer; transition: all .3s ease; display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: var(--shadow); }
+        .send-btn { background: var(--primary-navy); }
+        .send-btn:hover    { background: var(--dark-navy); box-shadow: var(--shadow-lg); transform: scale(1.05); }
+        .send-btn:active   { transform: scale(.95); }
+        .send-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+        .send-btn svg { width: 22px; height: 22px; fill: white; transform: rotate(0deg); margin-left: 2px; }
+        .stop-btn { background: #dc3545; display: none; }
+        .stop-btn:hover   { background: #c82333; transform: scale(1.05); }
+        .stop-btn::before { content: "🛑"; font-size: 1.3rem; }
+
+        .planner-area { flex: 1; display: flex; flex-direction: column; background: var(--gray-light); overflow-y: auto; padding: 2rem 3rem; }
+
+        #fileInput { display: none; }
+        .upload-overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,.5); z-index: 1000; align-items: center; justify-content: center; }
+        .upload-overlay.active { display: flex; }
+        .upload-modal  { background: var(--white); padding: 2rem; border-radius: var(--border-radius); box-shadow: var(--shadow-lg); text-align: center; z-index: 1001; }
+        .upload-cancel { background: #ddd; color: var(--gray-dark); border: none; padding: .75rem 1.5rem; border-radius: var(--border-radius); cursor: pointer; font-weight: 600; margin-top: 1rem; }
+
+        ::-webkit-scrollbar       { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+        .nav-sidebar ::-webkit-scrollbar-thumb       { background: rgba(255,255,255,.2); }
+        .nav-sidebar ::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+        /* ── VOICE OVERLAY ── */
+        .voice-overlay { position: fixed; top:0; left:0; width:100vw; height:100vh; background: rgba(0,15,30,.95); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity .3s ease; backdrop-filter: blur(8px); }
+        .voice-overlay.hidden { opacity:0; pointer-events:none; }
+        .voice-status  { color: var(--white); font-size: 1.5rem; margin-bottom: 30px; font-weight: 300; letter-spacing: 1px; }
+        #closeVoiceBtn { position: absolute; top:30px; right:30px; background:none; border:none; color:white; font-size:2rem; cursor:pointer; transition:.2s; }
+        #closeVoiceBtn:hover { color:#ff4444; transform:scale(1.1); }
+        .orb-container    { display: flex; align-items: center; justify-content: center; height: 300px; width: 100%; }
+        .voice-mode-badge { margin-top: 20px; padding: .4rem 1.2rem; border-radius: 20px; font-size: .85rem; font-weight: 600; letter-spacing: .5px; background: rgba(255,255,255,.1); color: rgba(255,255,255,.8); transition: all .3s ease; }
+        .voice-mode-badge.listening { background: rgba(0,200,100,.2); color: #00e676; }
+        .voice-mode-badge.thinking  { background: rgba(255,215,0,.2);  color: var(--gold); }
+        .voice-mode-badge.speaking  { background: rgba(0,120,255,.2);  color: #64b5f6; }
+        .voice-hint { color: rgba(255,255,255,.35); font-size: .8rem; margin-top: 10px; }
+
+        .voice-orb { width:170px; height:170px; background:transparent; border:4px solid var(--gold); border-radius:50%; position:relative; transition:transform .1s ease-out; will-change:transform,border-radius,box-shadow; }
+        .voice-orb::after  { content:''; position:absolute; top:-12px; left:-12px; right:-12px; bottom:-12px; border:4px solid #ff8c00; border-radius:inherit; filter:blur(12px); opacity:.8; transition:all .1s ease-out; }
+        .voice-orb::before { content:''; position:absolute; top:-4px; left:-4px; right:-4px; bottom:-4px; border:2px solid #fff; border-radius:inherit; filter:blur(4px); opacity:.6; transition:all .1s ease-out; }
+        .course-item { cursor: grab; transition: all .2s; user-select: none; }
+        .course-item:active { cursor: grabbing; transform: rotate(5deg); opacity: 0.8; }
+        .semester-dropzone { transition: all .3s ease; }
+        .semester-dropzone.drop-hover { 
+            box-shadow: 0 0 20px #FFD700, inset 0 0 20px rgba(255,215,0,.1); 
+            border-color: #FFD700 !important; 
+            transform: scale(1.02);
+        }
+        .dragging { opacity: 0.5; transform: rotate(8deg); }
+        @media (max-width: 768px) { .course-item { touch-action: manipulation; } }
+
+        /* ══════════════════════════════════════════════
+           MOBILE RESPONSIVE — phones & small tablets
+        ══════════════════════════════════════════════ */
+        @media (max-width: 768px) {
+
+            /* ── Body / Root ── */
+            body { overflow: hidden; }
+
+            /* ── Header ── */
+            .header {
+                padding: .75rem 1rem;
+                flex-wrap: nowrap;
+                gap: .5rem;
+            }
+            .header-left { gap: .5rem; flex: 1; min-width: 0; }
+            .logo         { font-size: 1.3rem; }
+            .header-title { display: none; }          /* hide long subtitle */
+            .header-badge { font-size: .65rem; padding: .2rem .5rem; }
+
+            .student-info { font-size: .75rem; }
+            .student-id   { font-size: .7rem; }
+
+            /* ── App layout: full-height column, sidebar at bottom ── */
+            .app-layout {
+                flex-direction: column;
+            }
+
+            /* ── Sidebar → bottom tab bar ── */
+            .nav-sidebar {
+                width: 100%;
+                flex-direction: row;
+                padding: 0;
+                height: 64px;
+                min-height: 64px;
+                order: 2;
+                overflow: hidden;
+                box-shadow: 0 -2px 10px rgba(0,0,0,.2);
+                align-items: stretch;
+            }
+
+            /* Hide everything except nav items in mobile tab bar */
+            .nav-brand-menu,
+            .sidebar-divider,
+            .history-section { display: none; }
+
+            /* Vertical divider between tabs */
+            .nav-section { flex-direction: row; flex: 1; }
+            .nav-section::after {
+                content: '';
+                display: block;
+                width: 1px;
+                background: rgba(255,255,255,.15);
+                margin: 10px 0;
+                align-self: stretch;
+            }
+
+            .nav-item {
+                flex: 1;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 3px;
+                padding: .35rem .2rem;
+                margin: 0;
+                border-radius: 0;
+                font-size: .65rem;
+                font-weight: 600;
+                border-left: none !important;
+                border-top: 3px solid transparent;
+                min-width: 0;
+                white-space: nowrap;
+            }
+            .nav-item.active {
+                border-top: 3px solid var(--gold);
+                border-left: none;
+                background: rgba(255,255,255,.08);
+                color: var(--gold);
+            }
+            .nav-item span { font-size: 1.4rem; line-height: 1; }
+
+            /* ── View containers ── */
+            .view-container {
+                flex: 1;
+                order: 1;
+                overflow: hidden;
+                min-height: 0;
+            }
+
+            /* ── Chat area ── */
+            .chat-area { height: 100%; }
+
+            .chat-messages {
+                padding: 1rem;
+                gap: .75rem;
+            }
+
+            /* Wider bubbles on small screens */
+            .message-content { max-width: 88%; }
+
+            /* ── Input area ── */
+            .input-area { padding: .6rem .75rem; gap: .4rem; flex-shrink: 0; }
+            .input-label { font-size: .7rem; }
+
+            /* Keep everything in ONE row on mobile */
+            .input-box { flex-direction: row; gap: .4rem; align-items: flex-end; }
+            #messageInput { font-size: .9rem; padding: .6rem .8rem; max-height: 80px; }
+
+            .action-controls {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                gap: .25rem;
+                flex-shrink: 0;
+            }
+            .icon-btn { font-size: 1.2rem; padding: 0 3px; }
+            .send-btn, .stop-btn { width: 40px; height: 40px; flex-shrink: 0; }
+            .send-btn svg { width: 18px; height: 18px; }
+
+            /* ── Planner area ── */
+            .planner-area { padding: 1rem; }
+
+            /* Stack header row in planner */
+            .planner-area > div:first-child {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: .75rem;
+                margin-bottom: 1rem;
+            }
+
+            #planGrid {
+                grid-template-columns: 1fr !important;  /* single column */
+            }
+
+            /* Planner controls bar */
+            .planner-area > div:nth-child(2) {
+                flex-direction: column;
+                gap: .5rem;
+                padding: .75rem 1rem;
+            }
+
+            /* ── Voice overlay ── */
+            .voice-status { font-size: 1.2rem; margin-bottom: 20px; }
+            .orb-container { height: 220px; }
+            .voice-orb { width: 130px; height: 130px; }
+            #closeVoiceBtn { top: 16px; right: 16px; font-size: 1.6rem; }
+        }
+
+        /* Extra-small phones (≤380px) */
+        @media (max-width: 380px) {
+            .logo { font-size: 1.1rem; }
+            .header-badge { display: none; }
+            .nav-item { font-size: .6rem; }
+            .chat-messages { padding: .75rem; }
+            .message-content { max-width: 92%; font-size: .88rem; }
+        }
+    </style>
+
+</head>
+<body>
+
+<div class="header">
+    <div class="header-left">
+        <a href="#" class="logo">ADVI</a>
+        <div class="header-badge">RAG-Powered</div>
+        <div class="header-title">Academic Advisor | Mansoura University</div>
+    </div>
+    <div class="header-right">
+        <div class="student-info">
+            <div id="studentName">Welcome, Student</div>
+            <div class="student-id" id="studentId">ID: Not logged in</div>
+        </div>
+    </div>
+</div>
+
+<div class="app-layout">
+    <nav class="nav-sidebar">
+        <div class="nav-section">
+            <div class="nav-brand-menu">Main Menu</div>
+            <div class="nav-item active" id="tabBtn-chat"    onclick="switchTab('chat')">   <span>💬</span> Chat Assistant</div>
+            <div class="nav-item"        id="tabBtn-planner" onclick="switchTab('planner')"><span>🎓</span> Grad Planner</div>
+        </div>
+        <hr class="sidebar-divider">
+        <div class="nav-section history-section">
+            <div class="nav-brand-menu">📚 Academic History</div>
+            <div class="history-content">
+                <div id="historyContainer" class="empty-history">No queries yet. Start chatting!</div>
+            </div>
+        </div>
+    </nav>
+
+    <div id="view-chat" class="view-container active">
+        <div class="chat-area">
+            <div class="chat-messages" id="chatMessages">
+                <div class="message assistant">
+                    <div class="message-avatar">A</div>
+                    <div>
+                        <div class="message-content">👋 Welcome to ADVI! I'm your academic advisor. How can I assist you today?</div>
+                        <div class="message-time">Just now</div>
+                    </div>
+                </div>
+            </div>
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <label class="input-label">Your Question</label>
+                    <div class="input-box">
+                        <textarea id="messageInput" placeholder="Ask about courses, requirements, graduation..." rows="1" onkeydown="handleKeyPress(event)"></textarea>
+                        <div class="action-controls">
+                            <button class="icon-btn" onclick="clearMemory()" title="Clear Memory">🗑️</button>
+                            <button class="icon-btn" onclick="unlockAudioThenVoice()" title="Voice Chat">🎙️</button>
+                            <button class="send-btn" id="sendBtn" onclick="sendMessage()"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+                            <button class="stop-btn" id="stopBtn" onclick="stopGeneration()" title="Stop"></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-planner" class="view-container">
+        <div class="planner-area">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2rem;">
+                <h2 style="color:var(--primary-navy);">🎓 Graduation Planner</h2>
+                <select id="planSelector" onchange="fetchPlan()" style="padding:.5rem;border-radius:5px;border:1px solid var(--gold);background:var(--white);font-weight:bold;font-family:inherit;">
+                    <option value="10">10 Semesters (Normal)</option>
+                    <option value="9">9 Semesters (Fast Track)</option>
+                    <option value="8">8 Semesters (Overload)</option>
+                </select>
+            </div>
+            <div style="background:var(--white);padding:1rem 1.5rem;border-radius:8px;border:1px solid var(--gold);margin-bottom:1.5rem;display:flex;gap:1rem;align-items:center;box-shadow:var(--shadow);">
+<!-- Move controls removed: drag-and-drop replaces checkboxes + select -->
+
+                    <option value="1">Semester 1</option><option value="2">Semester 2</option>
+                    <option value="S2">Summer S2</option><option value="3">Semester 3</option>
+                    <option value="4">Semester 4</option><option value="S3">Summer S3</option>
+                    <option value="5">Semester 5</option><option value="6">Semester 6</option>
+                    <option value="S4">Summer S4</option><option value="7">Semester 7</option>
+                    <option value="8">Semester 8</option><option value="9">Semester 9</option>
+                    <option value="10">Semester 10</option>
+                </select>
+                <button onclick="executeMove()" style="padding:.6rem 1.5rem;background:var(--primary-navy);color:white;border:none;border-radius:5px;cursor:pointer;font-weight:bold;">Move Courses ➡️</button>
+            </div>
+            <div id="planValidation" style="margin-bottom:1.5rem;"></div>
+            <div id="planGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.5rem;"></div>
+        </div>
+    </div>
+</div>
+
+<input type="file" id="fileInput" accept="image/*,.pdf" onchange="handleFileUpload(event)">
+<div class="upload-overlay" id="uploadOverlay">
+    <div class="upload-modal">
+        <h3>Uploading Transcript...</h3>
+        <p>Processing your document...</p>
+        <button class="upload-cancel" onclick="cancelUpload()">Cancel</button>
+    </div>
+</div>
+
+<div id="voiceOverlay" class="voice-overlay hidden">
+    <button id="closeVoiceBtn" onclick="closeVoiceUI()">✖</button>
+    <div id="voiceStatus" class="voice-status">Connecting...</div>
+    <div class="orb-container">
+        <div id="voiceOrb" class="voice-orb"></div>
+    </div>
+    <div id="voiceModeBadge" class="voice-mode-badge">Initializing</div>
+    <div class="voice-hint">قل "اسكت" أو "وقف" لمقاطعة الإجابة</div>
+</div>
+
+<!-- ══════════════════ SCRIPT 1 — Chat ══════════════════ -->
+<script>
+const API_URL = window.location.origin;
+const WS_URL  = window.location.origin.replace(/^http/, 'ws');
+
+let chatHistory    = [];
+let currentRawPlan = {};
+let abortController = null;
+let isStreaming      = false;
+
+function renderMarkdown(text) {
+    if (!text) return '';
+    marked.setOptions({ breaks: true, gfm: true, headerIds: false, mangle: false });
+    const raw = marked.parse(text);
+    return raw
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<iframe[\s\S]*?>/gi, '')
+        .replace(/\son\w+="[^"]*"/gi, '');
+}
+function escapeHtml(text) {
+    const d = document.createElement('div'); d.textContent = text; return d.innerHTML;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('chatHistory');
+    if (saved) { chatHistory = JSON.parse(saved); updateHistoryUI(); }
+    const ta = document.getElementById('messageInput');
+    ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 100) + 'px'; });
+});
+
+function switchTab(tabId) {
+    document.querySelectorAll('.nav-item').forEach(e => e.classList.remove('active'));
+    document.querySelectorAll('.view-container').forEach(e => e.classList.remove('active'));
+    document.getElementById(`tabBtn-${tabId}`).classList.add('active');
+    document.getElementById(`view-${tabId}`).classList.add('active');
+    if (tabId === 'planner') fetchPlan();
+}
+
+function handleKeyPress(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function addMessageToUI(sender, text, id = null) {
+    const chat    = document.getElementById('chatMessages');
+    const div     = document.createElement('div');
+    div.className = `message ${sender}`;
+    const avatar  = sender === 'assistant' ? 'A' : 'U';
+    const time    = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const idAttr  = id ? `id="${id}"` : '';
+    const content = sender === 'assistant' ? renderMarkdown(text) : escapeHtml(text);
+    div.innerHTML = `
+        <div class="message-avatar">${avatar}</div>
+        <div>
+            <div class="message-content" ${idAttr}>${content}</div>
+            <div class="message-time">${time}</div>
+        </div>`;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+    return id ? document.getElementById(id) : null;
+}
+
+async function sendMessage() {
+    const input   = document.getElementById('messageInput');
+    const message = input.value.trim();
+    if (!message || isStreaming) return;
+
+    const sendBtn = document.getElementById('sendBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    isStreaming = true;
+    sendBtn.disabled = true;
+    sendBtn.style.display = 'none';
+    stopBtn.style.display = 'flex';
+
+    addMessageToUI('user', message);
+    input.value = ''; input.style.height = 'auto';
+    chatHistory.unshift({ query: message, time: new Date().toLocaleTimeString() });
+    updateHistoryUI(); saveChatHistory();
+
+    const msgId      = 'stream-' + Date.now();
+    const contentDiv = addMessageToUI('assistant', '', msgId);
+
+    // ✅ Show thinking dots immediately
+    if (contentDiv) {
+        contentDiv.innerHTML = `<div class="thinking-dots"><span></span><span></span><span></span></div>`;
+    }
+
+    abortController = new AbortController();
+
+    try {
+        const res = await fetch(`${API_URL}/api/v1/nlp/index/answer/1`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: message, limit: 5 }),
+            signal: abortController.signal
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const reader  = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let fullAnswer = '', buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n'); buffer = lines.pop();
+            for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                const data = line.substring(6);
+                if (data === '[DONE]') break;
+                fullAnswer += data;
+                if (contentDiv) {
+                    // ✅ Thinking dots cleared on first real chunk
+                    contentDiv.innerHTML = renderMarkdown(fullAnswer);
+                    document.getElementById('chatMessages').scrollTop =
+                        document.getElementById('chatMessages').scrollHeight;
+                }
+            }
+        }
+    } catch (err) {
+        if (err.name === 'AbortError') {
+            if (contentDiv) contentDiv.innerHTML += '<br><em>[🛑 Stopped]</em>';
+        } else {
+            if (contentDiv) contentDiv.innerHTML = '❌ Error: Server connection failed.';
+        }
+    } finally {
+        isStreaming = false; abortController = null;
+        sendBtn.disabled = false;
+        sendBtn.style.display = 'flex'; stopBtn.style.display = 'none';
+        input.focus();
+    }
+}
+
+function stopGeneration() { if (abortController) abortController.abort(); }
+
+async function clearMemory() {
+    chatHistory = []; saveChatHistory(); updateHistoryUI();
+    document.getElementById('chatMessages').innerHTML = `
+        <div class="message assistant"><div class="message-avatar">A</div>
+        <div><div class="message-content">🧹 Memory cleared! Starting fresh.</div>
+        <div class="message-time">${new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' })}</div></div></div>`;
+}
+
+function updateHistoryUI() {
+    const el = document.getElementById('historyContainer');
+    if (!chatHistory.length) { el.innerHTML = '<div class="empty-history">No queries yet.</div>'; return; }
+    el.innerHTML = chatHistory.map((item, i) =>
+        `<div class="history-item" onclick="loadHistoryItem(${i})">
+            <div class="history-item-title">${escapeHtml(item.query)}</div>
+            <div class="history-item-time">${item.time}</div>
+         </div>`).join('');
+}
+function loadHistoryItem(i) { document.getElementById('messageInput').value = chatHistory[i].query; }
+function saveChatHistory()  { localStorage.setItem('chatHistory', JSON.stringify(chatHistory.slice(0, 15))); }
+
+async function fetchPlan() {
+    const type = document.getElementById('planSelector').value;
+    const grid = document.getElementById('planGrid');
+    const vbox = document.getElementById('planValidation');
+    grid.innerHTML = '<div style="text-align:center;grid-column:1/-1;padding:2rem;">Loading... ⏳</div>';
+    vbox.innerHTML = '';
+    try {
+        const res  = await fetch(`${API_URL}/api/v1/planner/plan/${type}`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        currentRawPlan = Object.fromEntries(Object.entries(data.plan).map(([s,d]) => [s, d.courses.map(c => c.code)]));
+        renderValidation(data.validation, vbox); renderPlanGrid(data.plan, grid);
+    } catch { grid.innerHTML = '<div style="color:red;grid-column:1/-1;text-align:center;">❌ Error loading plan.</div>'; }
+}
+
+function renderValidation(v, el) {
+    let content = "";
+
+    // ✅ Success
+    if (v.is_valid && !v.gpa_warning) {
+        content += `
+        <div style="background:#d4edda;color:#155724;padding:1rem;border-radius:8px;border-left:5px solid #28a745;">
+            ✅ Plan is valid.
+        </div>`;
+    }
+
+    // ⚠️ Warning (YELLOW)
+    if (v.gpa_warning) {
+        content += `
+        <div style="background:#fff3cd;color:#856404;padding:1rem;border-radius:8px;border-left:5px solid #ffc107;margin-top:10px;">
+            ⚠️ <strong>Warning:</strong> Some semesters exceed 18 credits.
+        </div>`;
+    }
+
+    // 🚫 Errors (RED)
+    if (v.errors && v.errors.length > 0) {
+        let errorHtml = `
+        <div style="background:#f8d7da;color:#721c24;padding:1rem;border-radius:8px;border-left:5px solid #dc3545;margin-top:10px;">
+        `;
+
+        v.errors.forEach(e => {
+            errorHtml += `🚫 ${e}<br>`;
+        });
+
+        errorHtml += `</div>`;
+        content += errorHtml;
+    }
+
+    el.innerHTML = content;
+}
+
+function renderPlanGrid(plan, el) {
+    el.innerHTML = '';
+    ["1","2","3","4","S2","5","6","S3","7","8","S4","9","10"].forEach(slot => {
+        const sem = plan[slot]; if (!sem) return;
+        const isSummer = slot.startsWith('S');
+        const title    = isSummer ? `Summer ${slot.replace('S','')}` : `Semester ${slot}`;
+            let html = `<div class="semester-dropzone" data-sem="${slot}" ondragover="allowDrop(event)" ondrop="handleDrop(event)" style="background:${isSummer?'#FFF8DC':'#fff'};border-top:4px solid ${isSummer?'#FFD700':'#003366'};border-radius:8px;box-shadow:var(--shadow);padding:1rem;transition:all .3s;">
+                <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ddd;padding-bottom:.5rem;margin-bottom:.8rem;">
+                    <strong style="color:var(--primary-navy);font-size:1.1rem;">${title}</strong>
+                    <span style="font-size:.75rem;background:var(--gray-light);padding:4px 8px;border-radius:12px;font-weight:bold;">${sem.total_credits} Hrs</span>
+                </div><ul style="list-style:none;padding:0;font-size:.9rem;">`;
+
+
+        if (!sem.courses.length) {
+            html += `<li style="color:#999;text-align:center;font-style:italic;font-size:.8rem;padding:1rem 0;">Empty</li>`;
+        } else {
+            sem.courses.forEach(c => {
+html += `<li draggable="true" class="course-item" data-code="${c.code}" data-sem="${slot}" ondragstart="dragStart(event)" ondragend="dragEnd(event)" style="margin-bottom:.5rem;display:flex;align-items:flex-start;gap:.5rem;background:rgba(0,0,0,.02);padding:4px;border-radius:4px;cursor:grab;">
+                    <div style="flex:1;display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:500;">${c.code} <span style="font-weight:normal;color:#555;">- ${escapeHtml(c.name)}</span></span>
+                        <span style="color:#888;font-size:.8rem;font-weight:bold;">(${c.credits})</span>
+                    </div></li>`;
+
+            });
+        }
+        html += `</ul></div>`;
+
+        el.innerHTML += html;
+    });
+}
+
+function dragStart(e) {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', JSON.stringify({
+        code: e.target.dataset.code,
+        sem: e.target.dataset.sem
+    }));
+    e.target.classList.add('dragging');
+}
+
+function allowDrop(e) {
+    e.preventDefault();
+    e.target.closest('.semester-dropzone').classList.add('drop-hover');
+}
+
+function dragEnd(e) {
+    e.target.classList.remove('dragging');
+    document.querySelectorAll('.semester-dropzone.drop-hover').forEach(d => d.classList.remove('drop-hover'));
+}
+
+async function handleDrop(e) {
+    e.preventDefault();
+    const dropzone = e.target.closest('.semester-dropzone');
+    if (!dropzone) return;
+    
+    const draggedData = JSON.parse(e.dataTransfer.getData('text/plain'));
+    const destSem = dropzone.dataset.sem;
+    const sourceSem = draggedData.sem;
+    const courseCode = draggedData.code;
+    
+    if (sourceSem === destSem) return;
+    
+    const grid = document.getElementById('planGrid');
+    grid.innerHTML = '<div style="text-align:center;grid-column:1/-1;padding:2rem;color:var(--primary-navy);">🧳 Moving course... ⏳</div>';
+    
+    const toMove = { [sourceSem]: [courseCode] };
+    try {
+        const res = await fetch(`${API_URL}/api/v1/planner/move`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                current_plan: currentRawPlan,
+                courses_to_move: toMove,
+                to_semester: destSem
+            })
+        });
+        if (!res.ok) throw new Error('API failed');
+        const data = await res.json();
+        currentRawPlan = data.raw_plan;
+        renderValidation(data.validation, document.getElementById('planValidation'));
+        renderPlanGrid(data.plan, grid);
+    } catch (err) {
+        console.error(err);
+        grid.innerHTML = '<div style="color:#dc3545;grid-column:1/-1;text-align:center;">❌ Move failed. Try again.</div>';
+        setTimeout(() => fetchPlan(), 2000);
+    }
+}
+
+function triggerFileUpload() { document.getElementById('fileInput').click(); }
+function cancelUpload()      { document.getElementById('uploadOverlay').classList.remove('active'); }
+async function handleFileUpload(e) {
+    if (!e.target.files[0]) return;
+    document.getElementById('uploadOverlay').classList.add('active');
+    setTimeout(() => { document.getElementById('uploadOverlay').classList.remove('active'); e.target.value = ''; alert('Demo: Upload simulated!'); }, 2000);
+}
+
+</script>
+
+<!-- ══════════════════ SCRIPT 2 — Gemini Live Voice ══════════════════ -->
+<script>
+let voiceWS            = null;
+let audioCtx           = null;
+let micStream          = null;
+let micProcessor       = null;
+let micAnalyser        = null;
+let animationId        = null;
+let isVoiceOpen        = false;
+let voiceState         = 'idle';
+let pcmQueue           = [];
+let isPlayingAudio     = false;
+let currentVoiceSource = null;
+let currentPlayCtx     = null;
+let curVol = 0, curR1 = 50, curR2 = 50, curR3 = 50, curR4 = 50;
+
+const INTERRUPT_WORDS = ["اسكت","وقف","قف","بس","كفاية","stop","quiet","silence"];
+
+const voiceOverlay  = document.getElementById('voiceOverlay');
+const voiceStatusEl = document.getElementById('voiceStatus');
+const voiceOrb      = document.getElementById('voiceOrb');
+const voiceBadge    = document.getElementById('voiceModeBadge');
+
+function setVoiceState(state) {
+    voiceState = state;
+    const labels = { idle:'جاهز', listening:'بستمعلك...', thinking:'بفكر...', speaking:'بتكلم...' };
+    const badge  = { idle:'', listening:'listening', thinking:'thinking', speaking:'speaking' };
+    voiceStatusEl.innerText = labels[state] || state;
+    voiceBadge.className    = `voice-mode-badge ${badge[state] || ''}`;
+    voiceBadge.innerText    = labels[state] || state;
+}
+
+// iOS requires AudioContext to be created + resumed synchronously inside a user gesture
+function unlockAudioThenVoice() {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    if (isIOS) {
+        // Create a reusable Audio element RIGHT NOW in the tap gesture
+        // iOS only allows play() on elements created/interacted with during a user gesture
+        if (!window._iosAudio) {
+            window._iosAudio = new Audio();
+            window._iosAudio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+            window._iosAudio.load();
+        }
+        // Play the silent audio to unlock the element
+        window._iosAudio.play().catch(() => {});
+    } else {
+        // Desktop/Android: unlock AudioContext
+        if (!window._playCtx || window._playCtx.state === 'closed') {
+            window._playCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 22050 });
+        }
+        const silentBuf = window._playCtx.createBuffer(1, 1, 22050);
+        const silentSrc = window._playCtx.createBufferSource();
+        silentSrc.buffer = silentBuf;
+        silentSrc.connect(window._playCtx.destination);
+        silentSrc.start(0);
+    }
+
+    toggleVoice();
+}
+
+function toggleVoice() {
+    if (isVoiceOpen) closeVoiceUI(); else openVoiceUI();
+}
+
+async function openVoiceUI() {
+    try {
+        micStream = await navigator.mediaDevices.getUserMedia({
+            audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        });
+    } catch { alert('Microphone access denied.'); return; }
+
+    isVoiceOpen = true;
+    voiceOverlay.classList.remove('hidden');
+    setVoiceState('idle');
+
+    audioCtx    = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+    // iOS Safari suspends AudioContext until explicitly resumed
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    micAnalyser = audioCtx.createAnalyser();
+    micAnalyser.fftSize = 256;
+
+    const micSource = audioCtx.createMediaStreamSource(micStream);
+    micSource.connect(micAnalyser);
+
+    micProcessor = audioCtx.createScriptProcessor(4096, 1, 1);
+    micSource.connect(micProcessor);
+    micProcessor.connect(audioCtx.destination);
+    micProcessor.onaudioprocess = onMicData;
+
+    startOrbAnimation();
+    connectWebSocket();
+}
+
+function connectWebSocket() {
+    voiceWS = new WebSocket(`${WS_URL}/api/v1/voice/live/1`);
+    voiceWS.binaryType = 'arraybuffer';
+
+    voiceWS.onopen = () => {
+        console.log('🟢 Voice WS connected');
+        setVoiceState('listening');
+    };
+
+    voiceWS.onmessage = (event) => {
+        if (typeof event.data === 'string') {
+            try {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'state') {
+                    setVoiceState(msg.value);
+                } else if (msg.type === 'transcript' && msg.role === 'user') {
+                    addMessageToUI('user', '🎙️ ' + msg.text);
+                } else if (msg.type === 'answer') {
+                    addMessageToUI('assistant', msg.text);
+                } else if (msg.type === 'interrupt') {
+                    // ✅ Interrupt keyword detected server-side
+                    stopVoiceAudio();
+                    setVoiceState('listening');
+                } else if (msg.type === 'turn_complete') {
+                    // ✅ Gemini finished its turn
+                    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                    if (isIOS && pcmQueue.length > 0 && !isPlayingAudio) {
+                        // iOS: all chunks have arrived — now play them all at once
+                        drainPcmQueue();
+                    } else if (pcmQueue.length === 0 && !isPlayingAudio) {
+                        setVoiceState('listening');
+                    }
+                }
+            } catch {}
+            return;
+        }
+
+        // Binary PCM audio from Gemini (24kHz int16 mono)
+        if (event.data instanceof ArrayBuffer && event.data.byteLength > 0) {
+            setVoiceState('speaking');
+            pcmQueue.push(event.data);
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            if (isIOS) {
+                // Start playing after ~1s of audio accumulated (24000Hz * 1s * 2 bytes = 48000 bytes)
+                const totalBytes = pcmQueue.reduce((s, b) => s + b.byteLength, 0);
+                if (!isPlayingAudio && totalBytes >= 48000) drainPcmQueue();
+            } else {
+                if (!isPlayingAudio) drainPcmQueue();
+            }
+        }
+    };
+
+    voiceWS.onclose = (e) => {
+        console.log('🔴 Voice WS closed', e.code);
+        if (isVoiceOpen) setVoiceState('idle');
+    };
+
+    voiceWS.onerror = (e) => {
+        console.error('Voice WS error', e);
+        setVoiceState('idle');
+    };
+}
+
+function onMicData(e) {
+    if (!voiceWS || voiceWS.readyState !== WebSocket.OPEN) return;
+    // ✅ Block mic while assistant is speaking or thinking
+    if (voiceState === 'speaking' || voiceState === 'thinking') return;
+
+    const float32 = e.inputBuffer.getChannelData(0);
+    const int16   = new Int16Array(float32.length);
+    for (let i = 0; i < float32.length; i++) {
+        int16[i] = Math.max(-32768, Math.min(32767, Math.round(float32[i] * 32767)));
+    }
+    voiceWS.send(int16.buffer);
+}
+
+async function drainPcmQueue() {
+    if (!pcmQueue.length) {
+        isPlayingAudio = false;
+        if (voiceState === 'speaking') setVoiceState('listening');
+        return;
+    }
+    isPlayingAudio = true;
+
+    // Detect iOS Safari
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+    if (isIOS) {
+        // iOS: all chunks collected — merge and play as one WAV
+        const allChunks = [pcmQueue.shift(), ...pcmQueue.splice(0)];
+        pcmQueue.length = 0;
+
+        const arrays   = allChunks.map(b => new Int16Array(b));
+        const totalLen = arrays.reduce((s, a) => s + a.length, 0);
+        const merged   = new Int16Array(totalLen);
+        let offset = 0;
+        for (const arr of arrays) { merged.set(arr, offset); offset += arr.length; }
+
+        const wavBlob = pcmToWav(merged, 24000);
+        const url     = URL.createObjectURL(wavBlob);
+
+        // Reuse the pre-unlocked audio element — never create a new one on iOS
+        if (!window._iosAudio) {
+            window._iosAudio = new Audio();
+        }
+        const audioEl = window._iosAudio;
+        audioEl.src   = url;
+        audioEl.load();
+
+        currentVoiceSource = audioEl;
+
+        audioEl.onended = () => {
+            URL.revokeObjectURL(url);
+            currentVoiceSource = null;
+            isPlayingAudio     = false;
+            if (pcmQueue.length > 0) {
+                drainPcmQueue();
+            } else {
+                if (voiceState === 'speaking') setVoiceState('listening');
+            }
+        };
+        audioEl.onerror = (e) => {
+            console.error('iOS audio error:', e);
+            URL.revokeObjectURL(url);
+            isPlayingAudio = false;
+            if (voiceState === 'speaking') setVoiceState('listening');
+        };
+
+        const playPromise = audioEl.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(err => {
+                console.error('iOS play() rejected:', err);
+                isPlayingAudio = false;
+                URL.revokeObjectURL(url);
+                if (voiceState === 'speaking') setVoiceState('listening');
+            });
+        }
+        return;
+    }
+
+    // Desktop / Android: use AudioContext (better quality + low-pass filter)
+    // Accumulate all available chunks to reduce lag
+    const allBuffers = [pcmQueue.shift(), ...pcmQueue.splice(0)];
+    pcmQueue.length  = 0;
+    const arrays     = allBuffers.map(b => new Int16Array(b));
+    const totalLen   = arrays.reduce((s, a) => s + a.length, 0);
+    const int16      = new Int16Array(totalLen);
+    let off = 0;
+    for (const arr of arrays) { int16.set(arr, off); off += arr.length; }
+
+    try {
+        const float32 = new Float32Array(int16.length);
+        for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
+
+        if (!window._playCtx || window._playCtx.state === 'closed') {
+            window._playCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 22050 });
+        }
+        const playCtx = window._playCtx;
+        if (playCtx.state === 'suspended') await playCtx.resume();
+
+        const audioBuf = playCtx.createBuffer(1, float32.length, 24000);
+        audioBuf.copyToChannel(float32, 0);
+
+        const filter           = playCtx.createBiquadFilter();
+        filter.type            = 'lowpass';
+        filter.frequency.value = 7500;
+        filter.Q.value         = 0.5;
+        filter.connect(playCtx.destination);
+
+        const src  = playCtx.createBufferSource();
+        src.buffer = audioBuf;
+        src.connect(filter);
+
+        currentVoiceSource = src;
+        currentPlayCtx     = playCtx;
+
+        src.onended = () => {
+            currentVoiceSource = null;
+            currentPlayCtx     = null;
+            drainPcmQueue();
+        };
+        src.start();
+
+    } catch (err) {
+        console.error('PCM playback error:', err);
+        drainPcmQueue();
+    }
+}
+
+// Convert raw PCM Int16Array to a WAV Blob
+function pcmToWav(int16Samples, sampleRate) {
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const byteRate = sampleRate * numChannels * bitsPerSample / 8;
+    const blockAlign = numChannels * bitsPerSample / 8;
+    const dataSize = int16Samples.length * 2;
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view   = new DataView(buffer);
+
+    function writeStr(offset, str) {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    }
+
+    writeStr(0,  'RIFF');
+    view.setUint32(4,  36 + dataSize, true);
+    writeStr(8,  'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1,  true);           // PCM
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, bitsPerSample, true);
+    writeStr(36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    // Write PCM samples
+    let offset = 44;
+    for (let i = 0; i < int16Samples.length; i++, offset += 2) {
+        view.setInt16(offset, int16Samples[i], true);
+    }
+
+    return new Blob([buffer], { type: 'audio/wav' });
+}
+
+function stopVoiceAudio() {
+    pcmQueue       = [];
+    isPlayingAudio = false;
+    if (currentVoiceSource) {
+        try {
+            // Handle both AudioBufferSourceNode and HTMLAudioElement
+            if (typeof currentVoiceSource.stop === 'function') {
+                currentVoiceSource.stop();
+            } else if (typeof currentVoiceSource.pause === 'function') {
+                currentVoiceSource.pause();
+                currentVoiceSource.src = '';
+            }
+        } catch {}
+        currentVoiceSource = null;
+    }
+    currentPlayCtx = null;
+}
+
+function closeVoiceUI() {
+    isVoiceOpen = false;
+    voiceOverlay.classList.add('hidden');
+    setVoiceState('idle');
+    stopVoiceAudio();
+    // Close and reset the shared playback context
+    if (window._playCtx) { try { window._playCtx.close(); } catch {} window._playCtx = null; }
+    if (window._iosAudio) { window._iosAudio.pause(); window._iosAudio.src = ''; window._iosAudio = null; }
+    if (voiceWS)      { voiceWS.close(); voiceWS = null; }
+    if (micProcessor) { micProcessor.disconnect(); micProcessor = null; }
+    if (micStream)    { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+    if (audioCtx)     { audioCtx.close(); audioCtx = null; }
+    if (animationId)  { cancelAnimationFrame(animationId); animationId = null; }
+}
+
+function startOrbAnimation() {
+    function frame() {
+        animationId = requestAnimationFrame(frame);
+        if (!micAnalyser) return;
+
+        const data = new Uint8Array(micAnalyser.frequencyBinCount);
+        micAnalyser.getByteFrequencyData(data);
+        const sum = data.reduce((a, b) => a + b, 0);
+        curVol += (sum / data.length - curVol) * 0.2;
+
+        if (voiceState === 'thinking') {
+            voiceOrb.style.borderRadius = '50%';
+            voiceOrb.style.transform    = `rotate(${Date.now() / 15 % 360}deg) scale(0.9)`;
+            voiceOrb.style.boxShadow    = `0 0 40px var(--primary-navy), inset 0 0 20px var(--gold)`;
+            voiceOrb.style.borderColor  = 'var(--primary-navy)';
+        } else {
+            const tR1 = 50 - (data[5]  || 0) / 255 * 15;
+            const tR2 = 50 + (data[15] || 0) / 255 * 15;
+            const tR3 = 50 - (data[25] || 0) / 255 * 15;
+            const tR4 = 50 + (data[35] || 0) / 255 * 15;
+            curR1 += (tR1 - curR1) * 0.15; curR2 += (tR2 - curR2) * 0.15;
+            curR3 += (tR3 - curR3) * 0.15; curR4 += (tR4 - curR4) * 0.15;
+
+            const br    = `${curR1}% ${100-curR1}% ${curR2}% ${100-curR2}% / ${100-curR3}% ${curR3}% ${100-curR4}% ${curR4}%`;
+            const scale = Math.min(1.5, 1 + curVol / 80);
+            const glow  = 20 + curVol * 1.5;
+
+            // ✅ Blue orb while speaking, gold while listening
+            const isSpeak     = voiceState === 'speaking';
+            const borderColor = isSpeak ? '#64b5f6' : 'var(--gold)';
+            const glowColor   = isSpeak
+                ? `rgba(100,181,246,.8), inset 0 0 ${glow/2}px rgba(0,120,255,.6)`
+                : `rgba(255,215,0,.8), inset 0 0 ${glow/2}px rgba(255,140,0,.6)`;
+
+            voiceOrb.style.borderRadius = br;
+            voiceOrb.style.transform    = `scale(${scale})`;
+            voiceOrb.style.borderColor  = borderColor;
+            voiceOrb.style.boxShadow    = `0 0 ${glow}px ${glowColor}`;
+        }
+    }
+    animationId = requestAnimationFrame(frame);
+}
+</script>
+
+</body>
+</html>
